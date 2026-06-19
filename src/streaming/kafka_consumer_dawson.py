@@ -1,4 +1,4 @@
-"""src/streaming/kafka_consumer_dawson.py.
+"""src/streaming/kafka_consumer_case.py.
 
 Kafka consumer: full pipeline example.
 
@@ -14,12 +14,12 @@ Work up to see how it all fits together.
 Many functions are standard helpers
 and should not need project-specific modifications.
 
-Author: Branton Dawson
+Author: Denise Case
 Date: 2026-05
 
 Terminal command to run this file from the root project folder:
 
-    uv run python -m streaming.kafka_consumer_dawson
+    uv run python -m streaming.kafka_consumer_case
 
 OBS:
   Don't edit this file - it should remain a working example.
