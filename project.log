@@ -348,3 +348,7 @@
 2026-06-17 12:00:13 | INFO | C06 | ========================
 2026-06-17 12:00:13 | INFO | C06 | Consumer executed successfully!
 2026-06-17 12:00:13 | INFO | C06 | ========================
+2026-06-19 06:42:01 | DEBUG | C06 | No variables found in .env
+2026-06-19 06:42:01 | DEBUG | P06 | No variables found in .env
+2026-06-19 06:45:49 | DEBUG | C06 | No variables found in .env
+2026-06-19 06:45:49 | DEBUG | P06 | No variables found in .env

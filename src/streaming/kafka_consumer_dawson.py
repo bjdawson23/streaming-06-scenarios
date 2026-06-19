@@ -1,4 +1,4 @@
-"""src/streaming/kafka_consumer_case.py.
+"""src/streaming/kafka_consumer_dawson.py.
 
 Kafka consumer: full pipeline example.
 
@@ -14,12 +14,12 @@ Work up to see how it all fits together.
 Many functions are standard helpers
 and should not need project-specific modifications.
 
-Author: Denise Case
+Author: Branton Dawson
 Date: 2026-05
 
 Terminal command to run this file from the root project folder:
 
-    uv run python -m streaming.kafka_consumer_case
+    uv run python -m streaming.kafka_consumer_dawson
 
 OBS:
   Don't edit this file - it should remain a working example.
@@ -88,6 +88,8 @@ OUTPUT_DIR: Final[Path] = DATA_DIR / "output"
 OUTPUT_CSV: Final[Path] = OUTPUT_DIR / "consumed_sales.csv"
 OUTPUT_DB: Final[Path] = OUTPUT_DIR / "sales.duckdb"
 OUTPUT_CHART: Final[Path] = OUTPUT_DIR / "sales_chart_case.png"
+
+OUTPUT_FIELDNAMES: Final[list[str]] = [*CONSUMED_FIELDNAMES, "total_sales"]
 
 REGIONS_CSV: Final[Path] = DATA_DIR / "regions.csv"
 PRODUCTS_CSV: Final[Path] = DATA_DIR / "products.csv"
@@ -291,6 +293,7 @@ def process_message(
     )
 
     stats.update(enriched["total"])
+    enriched["total_sales"] = round(stats.total, 2)
 
     update_live_chart(
         figure=figure,
@@ -377,8 +380,8 @@ def consume_messages(
 
         append_csv_row(
             path=OUTPUT_CSV,
-            row={field: enriched.get(field, "") for field in CONSUMED_FIELDNAMES},
-            fieldnames=CONSUMED_FIELDNAMES,
+            row={field: enriched.get(field, "") for field in OUTPUT_FIELDNAMES},
+            fieldnames=OUTPUT_FIELDNAMES,
         )
 
         consumed_count += 1
