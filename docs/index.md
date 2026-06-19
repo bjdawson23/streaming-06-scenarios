@@ -23,55 +23,52 @@ to get these projects running on your machine.
 
 ### Dataset
 
-Describe the dataset used by your Kafka producer.
-
-Include:
-
-- the name of the dataset file
-- what kind of records it contains
-- which fields are included in each record
-- whether you used the original sales dataset or modified it
+This project uses `data/sales.csv` as the source dataset.
+It contains online course sales transaction records with order, time, region,
+currency, product, price, quantity, and customer-related fields.
+I used the original dataset structure and consumed all available data rows.
 
 ### Kafka Messages
 
-Describe the messages sent through Kafka.
-
-Include:
-
-- what your producer sends
-- which Kafka topic you used
-- what message key you used, if any
-- whether you changed the message fields
+The producer sends validated sales records to the
+`streaming-06-scenarios-case` topic.
+The Kafka message key is `region_id` so related messages stay grouped by region.
+Message fields were kept consistent with the course sales schema.
 
 ### Consumer Processing
 
-Describe what your consumer receives and does with each message.
-
-Include:
-
-- what your consumer receives from Kafka
-- how many messages it consumes
-- what it logs or prints
-- if it writes records to a CSV file
-- if it processes or filters selected fields (be specific)
+The consumer reads sales records from Kafka, validates required fields,
+computes `subtotal`, `tax_amount`, and `total`, and tracks running stats.
+It writes processed rows to `data/output/consumed_sales.csv` and stores
+valid records in `data/output/sales.duckdb`.
+I also added a `total_sales` column to the output CSV so each consumed row
+shows the running cumulative sales value at that message.
 
 ### Experiments
 
-Describe the small technical changes you made.
+I made two key consumer enhancements:
 
-Include at least one Phase 4 change and one Phase 5 application.
+- Added running `total_sales` to each output CSV row.
+- Added a second live visualization for running average sales and saved it as
+	`data/output/average_sales_chart.png`.
+
+For full-file processing, I configured the producer to target all rows in
+`sales.csv` by increasing `PRODUCER_MESSAGE_COUNT` in `.env`.
 
 ### Results
 
-Describe what happened when you ran the producer and consumer.
+Producer and consumer runs completed successfully when Kafka was available.
+Output artifacts now include:
+
+- `data/output/consumed_sales.csv`
+- `data/output/sales.duckdb`
+- `data/output/sales_chart_case.png`
+- `data/output/average_sales_chart.png`
 
 ### Interpretation
 
-Explain what the Kafka streaming workflow showed you.
-
-Include:
-
-- what changed from the original example
-- what you learned from watching messages move through Kafka
-- what the stream could tell a business or organization
-- what business intelligence was gained from the consumed messages
+Compared with the original example, this version provides stronger streaming
+visibility by showing both cumulative sales and running average sales over time.
+Watching these metrics live makes trend shifts easier to spot during ingestion.
+From a business perspective, the stream now gives immediate insight into
+short-term performance and pacing, not just per-message totals.
