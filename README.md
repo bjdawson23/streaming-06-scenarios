@@ -231,6 +231,7 @@ Clear the terminal, then start the consumer.
 ```shell
 clear
 uv run python -m streaming.kafka_consumer_case
+uv run python -m streaming.kafka_consumer_dawson
 ```
 
 To start fresh, see
@@ -246,6 +247,17 @@ to delete the topic and recreate it.
 - You do not need to add to or modify `tests/`. They are provided for example only.
 - Many files are silent helpers. Explore as you like, but nothing is required.
 - You do NOT not to understand everything; understanding builds naturally over time.
+
+## Phase 4 Technical Modification
+
+- Added column total sales column to output file adding a cumulative total of sales of messages consumed
+- Set total_sales on each message as the running cumulative sales total in kafka_consumer_dawson.py
+- Updated CSV writing so total_sales is written to consumed_sales.csv in kafka_consumer_dawson.py
+
+## Phase 5 Custom Project
+
+- Created another chart showing live average sales and also create a average_sales_chart.png in the output folder.
+- Chande to producer to process all 178 data rows and consumer to consume all rows are consumed.
 
 ## Troubleshooting >>> or
 

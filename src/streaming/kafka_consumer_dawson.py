@@ -88,6 +88,7 @@ OUTPUT_DIR: Final[Path] = DATA_DIR / "output"
 OUTPUT_CSV: Final[Path] = OUTPUT_DIR / "consumed_sales.csv"
 OUTPUT_DB: Final[Path] = OUTPUT_DIR / "sales.duckdb"
 OUTPUT_CHART: Final[Path] = OUTPUT_DIR / "sales_chart_case.png"
+OUTPUT_AVERAGE_CHART: Final[Path] = OUTPUT_DIR / "average_sales_chart.png"
 
 OUTPUT_FIELDNAMES: Final[list[str]] = [*CONSUMED_FIELDNAMES, "total_sales"]
 
@@ -113,6 +114,7 @@ def log_paths() -> None:
     log_path(LOG, "OUTPUT_CSV", OUTPUT_CSV)
     log_path(LOG, "OUTPUT_DB", OUTPUT_DB)
     log_path(LOG, "OUTPUT_CHART", OUTPUT_CHART)
+    log_path(LOG, "OUTPUT_AVERAGE_CHART", OUTPUT_AVERAGE_CHART)
     log_path(LOG, "REGIONS_CSV", REGIONS_CSV)
     log_path(LOG, "PRODUCTS_CSV", PRODUCTS_CSV)
     log_path(LOG, "CURRENCIES_CSV", CURRENCIES_CSV)
@@ -205,11 +207,24 @@ def get_kafka_consumer(settings: KafkaSettings) -> Any:
 # ===========================================================================
 
 
-def initialize_output() -> tuple[Any, Any, list[int], list[float], RunningStats]:
+def initialize_output() -> tuple[
+    Any,
+    Any,
+    list[int],
+    list[float],
+    Any,
+    Any,
+    list[int],
+    list[float],
+    RunningStats,
+]:
     """Initialize output resources.
 
     Returns:
-        A tuple of (figure, axis, x_values, y_values, stats).
+        A tuple of
+        (sales_figure, sales_axis, sales_x_values, sales_y_values,
+         average_figure, average_axis, average_x_values, average_y_values,
+         stats).
     """
     LOG.info("Initializing output...")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -222,10 +237,52 @@ def initialize_output() -> tuple[Any, Any, list[int], list[float], RunningStats]
     LOG.info(f"Database initialized: {OUTPUT_DB.name}")
 
     figure, axis, x_values, y_values = init_live_chart()
-    LOG.info("Live chart initialized.")
+    LOG.info("Sales total chart initialized.")
+
+    average_figure, average_axis, average_x_values, average_y_values = init_live_chart()
+    average_axis.set_title("Average Sales by Message")
+    average_axis.set_xlabel("Message")
+    average_axis.set_ylabel("Average Sale ($)")
+    average_figure.canvas.draw()
+    average_figure.canvas.flush_events()
+    LOG.info("Average sales chart initialized.")
 
     stats = RunningStats()
-    return figure, axis, x_values, y_values, stats
+    return (
+        figure,
+        axis,
+        x_values,
+        y_values,
+        average_figure,
+        average_axis,
+        average_x_values,
+        average_y_values,
+        stats,
+    )
+
+
+def update_average_live_chart(
+    *,
+    figure: Any,
+    axis: Any,
+    x_values: list[int],
+    y_values: list[float],
+    message_offset: int,
+    average_sale: float,
+) -> None:
+    """Update the live average-sales chart with one consumed message."""
+    x_values.append(message_offset)
+    y_values.append(average_sale)
+
+    axis.clear()
+    axis.plot(x_values, y_values, marker="o", color="tab:orange")
+    axis.set_title("Average Sales by Message")
+    axis.set_xlabel("Message")
+    axis.set_ylabel("Average Sale ($)")
+    axis.grid(True)
+
+    figure.canvas.draw()
+    figure.canvas.flush_events()
 
 
 def load_reference_data() -> dict[str, float]:
@@ -256,6 +313,10 @@ def process_message(
     axis: Any,
     x_values: list[int],
     y_values: list[float],
+    average_figure: Any,
+    average_axis: Any,
+    average_x_values: list[int],
+    average_y_values: list[float],
 ) -> dict[str, Any] | None:
     """Process one consumed message.
 
@@ -274,6 +335,10 @@ def process_message(
         axis: Matplotlib axis.
         x_values: List of x-axis values already shown.
         y_values: List of y-axis values already shown.
+        average_figure: Matplotlib figure for average sales.
+        average_axis: Matplotlib axis for average sales.
+        average_x_values: List of x-axis values already shown for average sales.
+        average_y_values: List of y-axis values already shown for average sales.
 
     Returns:
         The enriched row, or None if validation failed.
@@ -303,6 +368,15 @@ def process_message(
         message=enriched,
     )
 
+    update_average_live_chart(
+        figure=average_figure,
+        axis=average_axis,
+        x_values=average_x_values,
+        y_values=average_y_values,
+        message_offset=int(enriched["_kafka_offset"]),
+        average_sale=stats.mean,
+    )
+
     return enriched
 
 
@@ -315,6 +389,10 @@ def consume_messages(
     axis: Any,
     x_values: list[int],
     y_values: list[float],
+    average_figure: Any,
+    average_axis: Any,
+    average_x_values: list[int],
+    average_y_values: list[float],
 ) -> tuple[int, int]:
     """Consume and process messages from the Kafka topic.
 
@@ -331,6 +409,10 @@ def consume_messages(
         axis: Matplotlib axis.
         x_values: List of x-axis values already shown.
         y_values: List of y-axis values already shown.
+        average_figure: Matplotlib figure for average sales.
+        average_axis: Matplotlib axis for average sales.
+        average_x_values: List of x-axis values already shown for average sales.
+        average_y_values: List of y-axis values already shown for average sales.
 
     Returns:
         A tuple of (consumed_count, skipped_count).
@@ -363,6 +445,10 @@ def consume_messages(
             axis=axis,
             x_values=x_values,
             y_values=y_values,
+            average_figure=average_figure,
+            average_axis=average_axis,
+            average_x_values=average_x_values,
+            average_y_values=average_y_values,
         )
 
         if enriched is None:
@@ -398,21 +484,24 @@ def consume_messages(
     return consumed_count, skipped_count
 
 
-def save_artifacts(figure: Any) -> None:
+def save_artifacts(figure: Any, average_figure: Any) -> None:
     """Save output artifacts or note their location.
 
     Include saving the live chart.
 
     Arguments:
         figure: Matplotlib figure to save as an image.
+        average_figure: Matplotlib figure for average sales.
     """
     LOG.info("Saving artifacts...")
 
     # Save the live chart as an image file.
     save_live_chart(figure=figure, chart_path=OUTPUT_CHART)
+    save_live_chart(figure=average_figure, chart_path=OUTPUT_AVERAGE_CHART)
 
     # Log the paths of all output artifacts.
     log_path(LOG, "WROTE OUTPUT_CHART", OUTPUT_CHART)
+    log_path(LOG, "WROTE OUTPUT_AVERAGE_CHART", OUTPUT_AVERAGE_CHART)
     log_path(LOG, "WROTE OUTPUT_CSV", OUTPUT_CSV)
     log_path(LOG, "WROTE OUTPUT_DB", OUTPUT_DB)
 
@@ -467,7 +556,17 @@ def main() -> None:
     LOG.info("SECTION C. Consume and Process Messages")
     LOG.info("========================")
 
-    figure, axis, x_values, y_values, stats = initialize_output()
+    (
+        figure,
+        axis,
+        x_values,
+        y_values,
+        average_figure,
+        average_axis,
+        average_x_values,
+        average_y_values,
+        stats,
+    ) = initialize_output()
     region_lookup = load_reference_data()
 
     consumed_count = 0
@@ -483,12 +582,16 @@ def main() -> None:
                 axis=axis,
                 x_values=x_values,
                 y_values=y_values,
+                average_figure=average_figure,
+                average_axis=average_axis,
+                average_x_values=average_x_values,
+                average_y_values=average_y_values,
             )
         finally:
             consumer.close()
             LOG.info("Kafka consumer closed.")
 
-        save_artifacts(figure)
+        save_artifacts(figure, average_figure)
 
     finally:
         close_live_chart()
